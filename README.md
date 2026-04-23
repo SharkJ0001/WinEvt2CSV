@@ -74,6 +74,8 @@ python evtx_parser.py Security.evtx -o my_analysis -f excel -b 50000 --report --
 ```bash
 python gui_app.py
 ```
+GUI选择日志文件，设置前缀，默认前缀为result可自定义，待解析完成导出文件
+<img width="989" height="732" alt="image" src="https://github.com/user-attachments/assets/5f60a8b9-26f9-442b-b578-4e26b2462fd3" />
 
 ## 输出文件
 
@@ -95,6 +97,12 @@ python evtx_parser.py Security.evtx -o my_report --report
 
 - `output/result.csv` - 解析后的日志数据
 - `output/result.html` - HTML分析报告（使用 `--report` 参数）
+- 输出的结果有两个文件一个是csv另一个是html报告
+- csv可以用表格条件筛选也可以用脚本处理数据
+- html报告是简单总结相关的日志ID数量，其他有功能需求可以自己加
+<img width="1920" height="777" alt="image" src="https://github.com/user-attachments/assets/88e47e3d-da43-4b70-a52e-d51e79f9c24b" />
+<img width="1920" height="891" alt="image" src="https://github.com/user-attachments/assets/ad410340-5937-4075-8233-ed9f15e6bbf4" />
+
 
 ### CSV分块输出机制
 
