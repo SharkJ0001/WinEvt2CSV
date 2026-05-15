@@ -78,6 +78,28 @@ class EVTXParser:
                 time_created_val = system_data.get('TimeCreated', {})
                 if isinstance(time_created_val, dict):
                     time_created_val = time_created_val.get('@SystemTime', '')
+                
+                if time_created_val:
+                    try:
+                        from datetime import datetime, timezone, timedelta
+                        
+                        if 'T' in time_created_val:
+                            time_created_val = time_created_val.replace('T', ' ')
+                            if time_created_val.endswith('Z'):
+                                time_created_val = time_created_val[:-1]
+                        
+                        if '.' in time_created_val:
+                            dt = datetime.strptime(time_created_val, '%Y-%m-%d %H:%M:%S.%f')
+                        else:
+                            dt = datetime.strptime(time_created_val, '%Y-%m-%d %H:%M:%S')
+                        
+                        dt_utc = dt.replace(tzinfo=timezone.utc)
+                        dt_local = dt_utc.astimezone()
+                        
+                        time_created_val = f"{dt_local.year}/{dt_local.month}/{dt_local.day} {dt_local.hour}:{dt_local.minute:02d}:{dt_local.second:02d}"
+                    except Exception as e:
+                        pass
+                
                 data['TimeCreated'] = time_created_val
                 
                 level_val = system_data.get('Level', '')
@@ -128,7 +150,7 @@ class EVTXParser:
             event_data_elem = root.find('ns:EventData', ns)
             if event_data_elem is not None:
                 event_data = self._xml_to_dict(event_data_elem)
-                data['Data'] = json.dumps(event_data, ensure_ascii=False)
+                data['Data'] = json.dumps(event_data)
                 
                 data_items = event_data.get('Data', [])
                 if isinstance(data_items, list):
@@ -214,17 +236,9 @@ class LogAnalyzer:
     def analyze_events(self, events: List[Dict[str, Any]]):
         for event in events:
             self._analyze_event_id(event)
-            
-            log_type = event.get('日志类型', event.get('Channel', '')).lower()
-            
-            if log_type in ['security', 'security.evtx']:
-                self._analyze_login_behavior(event)
-                self._detect_anonymous_login(event)
-                self._detect_anomaly_account(event)
-            elif log_type in ['application', 'application.evtx']:
-                self._detect_application_anomaly(event)
-            elif log_type in ['system', 'system.evtx']:
-                self._detect_system_anomaly(event)
+            self._analyze_login_behavior(event)
+            self._detect_anonymous_login(event)
+            self._detect_anomaly_account(event)
     
     def _analyze_event_id(self, event: Dict[str, Any]):
         event_id = event.get('EventID')
@@ -293,62 +307,6 @@ class LogAnalyzer:
                     **event
                 })
                 break
-    
-    def _detect_application_anomaly(self, event: Dict[str, Any]):
-        event_id = event.get('EventID')
-        
-        if event_id in ['1000', 1000]:
-            self.anomaly_records.append({
-                'type': 'application_crash',
-                'severity': 'medium',
-                **event
-            })
-        
-        elif event_id in ['1026', 1026]:
-            self.anomaly_records.append({
-                'type': 'dotnet_error',
-                'severity': 'medium',
-                **event
-            })
-    
-    def _detect_system_anomaly(self, event: Dict[str, Any]):
-        event_id = event.get('EventID')
-        
-        if event_id in ['7031', '7034', 7031, 7034]:
-            source = event.get('SourceName', '').lower()
-            if 'defend' in source or 'sam' in source or 'security' in source:
-                self.anomaly_records.append({
-                    'type': 'security_service_crash',
-                    'severity': 'high',
-                    **event
-                })
-            else:
-                self.anomaly_records.append({
-                    'type': 'service_crash',
-                    'severity': 'medium',
-                    **event
-                })
-        
-        elif event_id in ['1074', 1074]:
-            self.anomaly_records.append({
-                'type': 'system_shutdown',
-                'severity': 'low',
-                **event
-            })
-        
-        elif event_id in ['41', 41]:
-            self.anomaly_records.append({
-                'type': 'unexpected_shutdown',
-                'severity': 'high',
-                **event
-            })
-        
-        elif event_id in ['10016', 10016]:
-            self.anomaly_records.append({
-                'type': 'dcom_permission_error',
-                'severity': 'medium',
-                **event
-            })
     
     def detect_brute_force(self, threshold: int = 10, time_window_minutes: int = 5):
         failure_counts = defaultdict(list)
